@@ -1,0 +1,39 @@
+name: Self-Healing Sentinel
+on:
+  push:
+    branches: [ "**" ]
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  send-to-sentinel:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Collect context
+        id: ctx
+        run: |
+          echo "BASE_SHA=${{ github.event.before || github.event.pull_request.base.sha || github.sha }}" >> $GITHUB_OUTPUT
+          echo "HEAD_SHA=${{ github.sha }}" >> $GITHUB_OUTPUT
+          echo "REPO=${{ github.repository }}" >> $GITHUB_OUTPUT
+          echo "EVENT_NAME=${{ github.event_name }}" >> $GITHUB_OUTPUT
+
+      - name: Post to Sentinel webhook
+        env:
+          SENTINEL_URL: ${{ secrets.SENTINEL_URL }}
+          SENTINEL_WEBHOOK_SECRET: ${{ secrets.SENTINEL_WEBHOOK_SECRET }}
+        run: |
+          body=$(jq -n --arg repo "${{ steps.ctx.outputs.REPO }}" \
+                      --arg base "${{ steps.ctx.outputs.BASE_SHA }}" \
+                      --arg head "${{ steps.ctx.outputs.HEAD_SHA }}" \
+                      --arg event "${{ steps.ctx.outputs.EVENT_NAME }}" \
+                      '{repo:$repo, base:$base, head:$head, event:$event}')
+          ts=$(date +%s)
+          sig=$(printf "%s.%s" "$ts" "$body" | openssl dgst -sha256 -hmac "$SENTINEL_WEBHOOK_SECRET" -binary | xxd -p -c 256)
+          curl -sS -X POST "$SENTINEL_URL/webhooks/github" \
+            -H "Content-Type: application/json" \
+            -H "X-Sentinel-Timestamp: $ts" \
+            -H "X-Sentinel-Signature: sha256=$sig" \
+            -d "$body"

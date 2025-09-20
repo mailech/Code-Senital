@@ -1,0 +1,21 @@
+version: "3.9"
+services:
+  sentinel:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./:/app
+    restart: unless-stopped
+  worker:
+    build: .
+    env_file:
+      - .env
+    command: ["python", "app/worker.py"]
+    volumes:
+      - ./:/app
+    depends_on:
+      - sentinel
+    restart: unless-stopped

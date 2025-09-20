@@ -1,0 +1,58 @@
+name: Sentinel PR Validation
+
+on:
+  pull_request:
+    branches: [ main ]
+    types: [opened, synchronize, reopened]
+
+jobs:
+  validate-sentinel-pr:
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'sentinel/fix-')
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Validate Sentinel Fixes
+        run: |
+          echo "🤖 Validating Sentinel PR: ${{ github.head_ref }}"
+          echo "📋 PR Title: ${{ github.event.pull_request.title }}"
+          echo "🔍 Checking if fixes are working..."
+          
+          # Run tests to see if Sentinel fixes work
+          python -m pytest test_*.py -v --tb=short
+          
+          echo "✅ Sentinel validation complete!"
+          echo "🎉 All tests are now passing thanks to Sentinel's fixes!"
+      
+      - name: Comment on PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const sentinelComment = comments.find(comment => 
+              comment.body.includes('🤖 Sentinel') && comment.user.type === 'Bot'
+            );
+            
+            if (!sentinelComment) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: `## 🤖 Sentinel Validation Complete!
+                
+
+              });
+            }
