@@ -2,6 +2,8 @@
 
 This repository contains intentional bugs to demonstrate the Self-Healing Codebase Sentinel system.
 
+For more detsiled Explanation Visit: https://lnkd.in/p/gi-Wirgm
+
 ## 🐛 Intentional Bugs
 
 ### Math Operations (`buggy_math.py`)
